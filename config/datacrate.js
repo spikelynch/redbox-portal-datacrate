@@ -1,0 +1,8 @@
+module.exports.datacrate = {
+    // To check whether a zipfile is a DataCrate at upload,
+    // DataCrateService looks for a file called bagInfo and
+    // matches the contents against profileRe. The group
+    // in the Re is the datacrate version
+    bagInfo: 'bag-info.txt',
+    profileRe: 'profile-datacrate-v(\\d+\\.\\d+)\\.json'
+};

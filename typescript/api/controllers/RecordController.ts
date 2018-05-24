@@ -17,6 +17,8 @@
 // with this program; if not, write to the Free Software Foundation, Inc.,
 // 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
+// So this should also get updated
+
 //<reference path='./../../typings/loader.d.ts'/>
 declare var module;
 declare var sails;
@@ -25,10 +27,12 @@ import moment from 'moment-es6';
 import * as tus from 'tus-node-server';
 import * as fs from 'fs';
 
-declare var FormsService, RecordsService, WorkflowStepsService, BrandingService, RecordTypesService, TranslationService, User, EmailService;
+declare var FormsService, RecordsService, WorkflowStepsService, BrandingService, RecordTypesService, TranslationService, User, EmailService, DataCrateService;
 /**
  * Package that contains all Controllers.
  */
+
+
 import controller = require('../core/CoreController.js');
 export module Controllers {
   /**
@@ -641,9 +645,21 @@ export module Controllers {
           path: sails.config.record.attachments.path,
           directory: targetDir
         });
+        // this.tusServer.on(tus.EVENTS.EVENT_ENDPOINT_CREATED, function (event) {
+        //   sails.log.verbose("::: tus endpoint created:");
+        //   sails.log.verbose(JSON.stringify(event));
+        // });
         this.tusServer.on(tus.EVENTS.EVENT_UPLOAD_COMPLETE, (event) => {
-          sails.log.verbose(`::: File uploaded to staging:`);
-          sails.log.verbose(JSON.stringify(event));
+            sails.log.verbose(`::: File uploaded to staging:`);
+	    let path = targetDir + '/' + event["file"]["id"]
+            sails.log.verbose("Checking DataCrate status of " + path);
+	    DataCrateService.isDataCrate(path, function(r) {
+		if( r ) {
+		    sails.log.verbose("DataCrate says " + path + " is a DataCrate v" + r);
+		} else {
+		    sails.log.verbose("Not a zip file");
+		}
+	    }
         });
         this.tusServer.on(tus.EVENTS.EVENT_FILE_CREATED, (event) => {
           sails.log.verbose(`::: File created:`);
