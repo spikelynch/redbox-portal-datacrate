@@ -25,11 +25,11 @@ module.exports = {
     _hookTimeout: 480000,
   },
   log: {
-    level: 'verbose'
+      level: "verbose"
   },
   appUrl:'http://localhost:1500',
   // added for TUS server
-  appPort: 1500,
+  // appPort: 1500,
   db: {
     waitRetries: 5,
     waitSleep: 10000

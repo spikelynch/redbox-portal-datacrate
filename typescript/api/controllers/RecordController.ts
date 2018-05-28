@@ -58,7 +58,8 @@ export module Controllers {
       'getMeta',
       'getTransferResponsibilityConfig',
       'updateResponsibilities',
-      'doAttachment'
+      'doAttachment',
+      'dataCrate'
     ];
 
     /**
@@ -335,7 +336,7 @@ export module Controllers {
         const origRecord = _.cloneDeep(currentRec);
         currentRec.metadata = metadata;
         return FormsService.getFormByName(currentRec.metaMetadata.form, true)
-        .flatMap(form =>{
+          .flatMap(form =>{        
           currentRec.metaMetadata.attachmentFields = form.attachmentFields;
           return this.updateMetadata(brand, oid, currentRec, user.username);
         })
@@ -634,7 +635,9 @@ export module Controllers {
     protected tusServer:any;
 
     protected initTusServer() {
+         
       if (!this.tusServer) {
+	sails.log.info("Creating tusServer");
         this.tusServer = new tus.Server();
         const targetDir = sails.config.record.attachments.stageDir;
         if (!fs.existsSync(targetDir)) {
@@ -645,25 +648,17 @@ export module Controllers {
           path: sails.config.record.attachments.path,
           directory: targetDir
         });
-        // this.tusServer.on(tus.EVENTS.EVENT_ENDPOINT_CREATED, function (event) {
-        //   sails.log.verbose("::: tus endpoint created:");
-        //   sails.log.verbose(JSON.stringify(event));
-        // });
-        this.tusServer.on(tus.EVENTS.EVENT_UPLOAD_COMPLETE, (event) => {
-            sails.log.verbose(`::: File uploaded to staging:`);
-	    let path = targetDir + '/' + event["file"]["id"]
-            sails.log.verbose("Checking DataCrate status of " + path);
-	    DataCrateService.isDataCrate(path, function(r) {
-		if( r ) {
-		    sails.log.verbose("DataCrate says " + path + " is a DataCrate v" + r);
-		} else {
-		    sails.log.verbose("Not a zip file");
-		}
-	    }
-        });
         this.tusServer.on(tus.EVENTS.EVENT_FILE_CREATED, (event) => {
-          sails.log.verbose(`::: File created:`);
-          sails.log.verbose(JSON.stringify(event));
+          sails.log.info("*** TUS file created ***");
+          sails.log.info(JSON.stringify(event));
+        });
+        this.tusServer.on(tus.EVENTS.EVENT_ENDPOINT_CREATED, (event) => {
+          sails.log.info("*** TUS endpoint created ***");
+          sails.log.info(JSON.stringify(event));
+        });
+        this.tusServer.on(tus.EVENTS.EVENT_UPLOAD_COMPLETE, (event) =>{
+          sails.log.info("*** TUS upload completed ***");
+          sails.log.info(JSON.stringify(event));
         });
       }
     }
@@ -720,6 +715,7 @@ export module Controllers {
             } else {
               // process the upload...
               this.tusServer.handle(req, res);
+              sails.log.info("Uploading for " + oid);  
               return Observable.of(oid);
             }
           });
@@ -738,7 +734,30 @@ export module Controllers {
         }
       });
     }
+      
+    // web service to report if an uploaded file seems to be
+    // a zipped DataCrate and, if so, get some metadata from it
+    
+    public dataCrate(req, res) {
+      const brand = BrandingService.getBrand(req.session.branding);
+      const oid = req.param('oid');
+      const attachId = req.param('attachId');
+ 
+      return this.getRecord(oid).flatMap(currentRec => {
+        return this.hasViewAccess(brand, req.user, currentRec).flatMap(hasViewAccess => {
+          if(!hasViewAccess) {
+            return this.ajaxFail(req, res, TranslationService.t('view-error-no-permissions')) 
+          }
+          const targetDir = sails.config.record.attachments.stageDir; 
+          const path = targetDir + '/' + attachId;
+          return DataCrateService.isDataCrate(path).flatMap(dataCrateStatus => {
+            return this.ajaxOK(req, res, null, dataCrateStatus);
+          });
+        });
+      });
+    }
 
+      
     public getWorkflowSteps(req, res) {
       const recordType = req.param('recordType');
       const brand = BrandingService.getBrand(req.session.branding);

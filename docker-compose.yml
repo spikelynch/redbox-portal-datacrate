@@ -33,6 +33,8 @@ services:
           - mongodb
     ports:
        - "27017:27017"
+    logging:
+       driver: "none"
   redbox:
     image: qcifengineering/redbox:2.x
     expose:
@@ -50,3 +52,5 @@ services:
           - redbox
     ports:
        - "9000:9000"
+    logging:
+        driver: "none"

@@ -78,7 +78,24 @@ export module Services {
     }
     /**
      * Compares existing record metadata with new metadata and either removes or deletes the datastream from the record
+
+    FIXME: This needs to check if there's a DataCrate among the
+    attachments, and if there is, don't push it into the 
+    ReDBox storage, but extract it onto the web server file
+    system and generate a URL for it.
+
+    Note that extraction is a long process and has to be given
+    to a WorkspaceAsync
+
+    It needs to go here because this is an Observable chain
+
+
+
      */
+
+
+
+      
     public updateDatastream(oid, record, newMetadata, fileRoot, deleteWhenAttached:boolean = true) {
       // loop thru the attachment fields and determine if we need to add or remove
       return FormsService.getFormByName(record.metaMetadata.form, true).flatMap(form =>{
@@ -130,11 +147,12 @@ export module Services {
       return request[apiConfig.method](opts);
     }
 
+      
     public addDatastream(oid, fileId) {
       const apiConfig = sails.config.record.api.addDatastream;
       const opts = this.getOptions(`${sails.config.record.baseUrl.redbox}${apiConfig.url}`, oid);
       opts.url = `${opts.url}?skipReindex=true&datastreamId=${fileId}`;
-      const fpath = `${sails.config.record.attachments.stageDir}/${fileId}`;
+      const fpath = `${sails.config.record.attachments.stageDir}/${fileId}`;  
       opts['formData'] = {
         content: fs.createReadStream(fpath)
       };
@@ -149,14 +167,19 @@ export module Services {
       return request[apiConfig.method](opts);
     }
 
+      // this returns a call to the datastream api on the old
+      // redbox to push them into the storage.
+      // big zip files will break it
+      
     public addDatastreams(oid, fileIds: any[]) {
       const apiConfig = sails.config.record.api.addDatastreams;
       const opts = this.getOptions(`${sails.config.record.baseUrl.redbox}${apiConfig.url}`, oid);
       opts.url = `${opts.url}?skipReindex=false&datastreamIds=${fileIds.join(',')}`;
       const formData = {};
-      _.each(fileIds, fileId => {
-        const fpath = `${sails.config.record.attachments.stageDir}/${fileId}`;
-        formData[fileId] = fs.createReadStream(fpath);
+        _.each(fileIds, fileId => {
+            const fpath = `${sails.config.record.attachments.stageDir}/${fileId}`;
+            sails.log.info(`Looping files _each: ${fileId}`);
+            formData[fileId] = fs.createReadStream(fpath);
       });
       opts['formData'] = formData;
 

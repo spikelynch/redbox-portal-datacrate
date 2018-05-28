@@ -31,82 +31,66 @@ declare var _this;
 
 
 export module Services {
-    /**
-     * Redbox-portal interface to DataCrate
-     *
-     * Author: Mike Lynch
-     *
-     */
-    export class DataCrateService extends services.Services.Core.Service {
-
-	
-	
-	protected _exportedMethods: any = [
-	    'isDataCrate'
-	];
-
-	helloWorld(): string {
-	    return "Hello, world";
-	}
-
-	isDataCrate(zfile: string, callback: (version: string|undefined) => any):void {
-	    const BIPROFILE = sails.config.datacrate.bagitfile;
-	    const DCRE = sails.config.datacrate.profilere;
-	    fs.readFile(zfile, function(err, data) {
-		if( err ) throw err;
-		jszip.loadAsync(data).then(function (zip) {
-		    if( KEYFILE in zip['files'] ) {
-			zip.file(KEYFILE).async('text').then(function(data) {
-			    let m = data.match(DCRE);
-			    if( m ) {
-				callback(m[1]);
-			    } else {
-				callback(undefined);
-			    }
-			});
-		    } else {
-			console.log("is a zip file, no bag-info.txt");
-			callback(undefined);
-		    }
-		}).catch(function(err) {
-		    console.log("jsz error, likely not a zip file");
-		    callback(undefined);
-		});
-	    })
-	}
-
-	
-	isDataCrate_old(zfile: string, callback: (version: string|undefined) => any):void {
-	    sails.log.verbose("*** checking isDataCrate");
-	    fs.readFile(zfile, function(err, data) {
-		if( err ) {
-		    sails.log.verbose("Error reading " + zfile);
-		    sails.log.verbose(err);
-		    callback(undefined);
-		}
-		sails.log.verbose("Calling jszip load");
-		jszip.loadAsync(data).then(function (zip) {
-		    var v = undefined;
-		    for (var f in zip['files']) {
-			sails.log.verbose("Scanning file " + f);
-			var m = f.match(sails.config.datacrate.profile_re);
-			if( m ) {
-			    sails.log.verbose("Matched!");
-			    v = m[1];
-			    break;
-			}
-		    }
-		    sails.log.verbose("It's a zip file, DataCrate version is " + v);
-		    callback(v);	    
-		}).catch(function(err) {
-		    // not a zip file so not a zipped DataCrate
-		    sails.log.verbose("Error trying to unzip " + zfile);
-		    sails.log.verbose(err);
-		    callback(undefined);
-		});
-	    })
-	}
-
+  /**
+   * Redbox-portal interface to DataCrate
+   *
+   * Author: Mike Lynch
+   *
+   */
+  export class DataCrateService extends services.Services.Core.Service {
+    
+    protected _exportedMethods: any = [
+      'isDataCrate'
+    ];
+    
+    public isDataCrate(file: string) {
+      sails.log.info("in the isDataCrate handler for " + file);
+      return Observable.fromPromise(this.isDataCratePromise(file));
     }
+
+    protected function isDataCratePromise(file: string): Promise<Object> {
+      return new Promise<Object>(function (resolve, reject) {
+        fs.readFile(file, function(err, data) {
+          if( err ) {
+            sails.error.log("Error reading " + file);
+            reject(err);
+          } else {
+            resolve(data);
+          }
+        })
+      }).then(function(data) {
+        return jszip.loadAsync(data);
+      }).then(function (zip) {
+        if( BIPROFILE in zip['files'] ) {
+          return zip.file(BIPROFILE).async('text').then(function(data) {
+	    let m = data.match(DCRE);
+	    if( m ) {
+	      let v = m[1];
+              return {
+                'datacrate': m[1],
+                'notes': "Datacrate v " + m[1],
+                'contents': zip['files']
+              };
+ 	    } else {
+	      return {
+                'datacrate': '',
+                'notes': 'Bag',
+                'contents': zip['files']
+              };
+	    }
+          });
+        } else {
+          return Promise.resolve({
+            'datacrate': '',
+            'notes': 'Zip',
+            'contents': zip['files']
+          });
+        }
+      }).catch(function(err) {
+        return {'datacrate': '' };
+      });
+    }
+  }
 }
+
 module.exports = new Services.DataCrateService().exports();
