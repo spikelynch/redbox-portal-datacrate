@@ -126,8 +126,8 @@ export module Controllers {
     }
 
     protected hasViewAccess(brand, user, currentRec) {
-      sails.log.verbose("Current Record: ");
-      sails.log.verbose(currentRec);
+      sails.log.debug("hasViewAccess Current Record: ");
+      sails.log.debug(currentRec);
       return Observable.of(RecordsService.hasViewAccess(brand, user, user.roles, currentRec));
     }
 
@@ -742,22 +742,30 @@ export module Controllers {
       const brand = BrandingService.getBrand(req.session.branding);
       const oid = req.param('oid');
       const attachId = req.param('attachId');
- 
-      return this.getRecord(oid).flatMap(currentRec => {
-        return this.hasViewAccess(brand, req.user, currentRec).flatMap(hasViewAccess => {
-          if(!hasViewAccess) {
-            return this.ajaxFail(req, res, TranslationService.t('view-error-no-permissions')) 
-          }
-          const targetDir = sails.config.record.attachments.stageDir; 
-          const path = targetDir + '/' + attachId;
-          return DataCrateService.isDataCrate(path).flatMap(dataCrateStatus => {
-            return this.ajaxOK(req, res, null, dataCrateStatus);
-          });
-        });
-      });
-    }
 
-      
+      sails.log.info("in Record.Controller.dataCrate: " + oid);
+      return this.getRecord(oid).flatMap(currentRec => {
+        sails.log.info("currentRec = " + currentRec);
+        return this.hasViewAccess(brand, req.user, currentRec)
+          .flatMap(hasViewAccess => {
+            sails.log("Checking view access: " + hasViewAccess);
+            if(!hasViewAccess) {
+              return Observable.throw(new Error(TranslationService.t('view-error-no-permissions'))); 
+            }
+            const targetDir = sails.config.record.attachments.stageDir; 
+            const path = targetDir + '/' + attachId;
+            sails.log.info("About to go get DataCrate status: " + path);
+            return DataCrateService.isDataCrate(path);
+          })
+      })
+        .subscribe(
+          response => { this.ajaxOk(req, res, null, response, true)},
+          error => { this.ajaxFail(req,res, error.message) }
+        );
+    }
+                            
+    
+    
     public getWorkflowSteps(req, res) {
       const recordType = req.param('recordType');
       const brand = BrandingService.getBrand(req.session.branding);

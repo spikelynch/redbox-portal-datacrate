@@ -48,11 +48,12 @@ export module Services {
       return Observable.fromPromise(this.isDataCratePromise(file));
     }
 
-    protected function isDataCratePromise(file: string): Promise<Object> {
+    protected isDataCratePromise(file: string): Promise<Object> {
       return new Promise<Object>(function (resolve, reject) {
         fs.readFile(file, function(err, data) {
+          sails.log.info("Read file " + file);
           if( err ) {
-            sails.error.log("Error reading " + file);
+            sails.log.error("Error reading " + file);
             reject(err);
           } else {
             resolve(data);
@@ -61,9 +62,11 @@ export module Services {
       }).then(function(data) {
         return jszip.loadAsync(data);
       }).then(function (zip) {
-        if( BIPROFILE in zip['files'] ) {
-          return zip.file(BIPROFILE).async('text').then(function(data) {
-	    let m = data.match(DCRE);
+        const BAGITFILE = sails.config.datacrate.bagitFile;
+        const PROFILEPAT = sails.config.datacrate.profilePattern;
+        if( BAGITFILE in zip['files'] ) {
+          return zip.file(BAGITFILE).async('text').then(function(data) {
+	    let m = data.match(PROFILEPAT);
 	    if( m ) {
 	      let v = m[1];
               return {
@@ -87,7 +90,8 @@ export module Services {
           });
         }
       }).catch(function(err) {
-        return {'datacrate': '' };
+        sails.log.info("error unzipping: " + err);
+        return {'datacrate': '', 'error': err.message };
       });
     }
   }
