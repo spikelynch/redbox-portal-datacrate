@@ -74,7 +74,6 @@ export module Services {
                   let root = this.dataCrateRoot(catalog);
                   return {
                     'datacrate': m[1],
-                    'notes': root['name'] + "\n" + root['description'] + '\n(DataCrate v ' + m[1] + ')',
                     'contents': files,
                     'name': root['name'],
                     'description': root['description']
