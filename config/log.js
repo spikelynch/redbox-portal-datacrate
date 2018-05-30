@@ -16,7 +16,7 @@ const customLogger = new (winston.Logger)({
   transports: [
     new (winston.transports.Console)({
       colorize: true,
-      level: 'debug',
+      level: 'verbose',
       json: false
     }),
     new (winston.transports.File)({

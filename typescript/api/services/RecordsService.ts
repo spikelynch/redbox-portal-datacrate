@@ -69,6 +69,7 @@ export module Services {
       // TODO: validate metadata with the form...
       const options = this.getOptions(sails.config.record.baseUrl.redbox+sails.config.record.api.updateMeta.url, oid);
       options.body = record;
+      sails.log.info("*** updateMeta: " + JSON.stringify(record));
       return Observable.fromPromise(request[sails.config.record.api.updateMeta.method](options));
     }
 

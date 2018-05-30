@@ -44,14 +44,12 @@ export module Services {
     ];
     
     public isDataCrate(file: string) {
-      sails.log.info("in the isDataCrate handler for " + file);
       return Observable.fromPromise(this.isDataCratePromise(file));
     }
 
     protected isDataCratePromise(file: string): Promise<Object> {
       return new Promise<Object>(function (resolve, reject) {
         fs.readFile(file, function(err, data) {
-          sails.log.info("Read file " + file);
           if( err ) {
             sails.log.error("Error reading " + file);
             reject(err);
@@ -64,6 +62,7 @@ export module Services {
       }).then(function (zip) {
         const BAGITFILE = sails.config.datacrate.bagitFile;
         const PROFILEPAT = sails.config.datacrate.profilePattern;
+        let files = Object.keys(zip['files']);
         if( BAGITFILE in zip['files'] ) {
           return zip.file(BAGITFILE).async('text').then(function(data) {
 	    let m = data.match(PROFILEPAT);
@@ -72,13 +71,13 @@ export module Services {
               return {
                 'datacrate': m[1],
                 'notes': "Datacrate v " + m[1],
-                'contents': zip['files']
+                'contents': files
               };
  	    } else {
 	      return {
                 'datacrate': '',
                 'notes': 'Bag',
-                'contents': zip['files']
+                'contents': files
               };
 	    }
           });
@@ -86,7 +85,7 @@ export module Services {
           return Promise.resolve({
             'datacrate': '',
             'notes': 'Zip',
-            'contents': zip['files']
+            'contents': files
           });
         }
       }).catch(function(err) {

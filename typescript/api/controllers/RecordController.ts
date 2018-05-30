@@ -62,6 +62,8 @@ export module Controllers {
       'dataCrate'
     ];
 
+    protected 
+    
     /**
      **************************************************************************************************
      **************************************** Add custom methods **************************************
@@ -632,12 +634,11 @@ export module Controllers {
       });
     }
 
-    protected tusServer:any;
+    protected tusServer: tus.Server;
 
     protected initTusServer() {
          
-      if (!this.tusServer) {
-	sails.log.info("Creating tusServer");
+      if ( !this.tusServer ) {
         this.tusServer = new tus.Server();
         const targetDir = sails.config.record.attachments.stageDir;
         if (!fs.existsSync(targetDir)) {
@@ -657,8 +658,6 @@ export module Controllers {
           sails.log.info(JSON.stringify(event));
         });
         this.tusServer.on(tus.EVENTS.EVENT_UPLOAD_COMPLETE, (event) =>{
-          sails.log.info("*** TUS upload completed ***");
-          sails.log.info(JSON.stringify(event));
         });
       }
     }
@@ -676,7 +675,7 @@ export module Controllers {
       const brand = BrandingService.getBrand(req.session.branding);
       const oid = req.param('oid');
       const attachId = req.param('attachId');
-      this.initTusServer();
+      this.initTusServer(oid);
       const method = _.toLower(req.method);
       if (method == 'post') {
         req.baseUrl = `${sails.config.appPort ? `:${sails.config.appPort}`: ''}/${req.session.branding}/${req.session.portal}/record/${oid}`
@@ -734,7 +733,8 @@ export module Controllers {
         }
       });
     }
-      
+
+
     // web service to report if an uploaded file seems to be
     // a zipped DataCrate and, if so, get some metadata from it
     
@@ -743,18 +743,14 @@ export module Controllers {
       const oid = req.param('oid');
       const attachId = req.param('attachId');
 
-      sails.log.info("in Record.Controller.dataCrate: " + oid);
       return this.getRecord(oid).flatMap(currentRec => {
-        sails.log.info("currentRec = " + currentRec);
         return this.hasViewAccess(brand, req.user, currentRec)
           .flatMap(hasViewAccess => {
-            sails.log("Checking view access: " + hasViewAccess);
             if(!hasViewAccess) {
               return Observable.throw(new Error(TranslationService.t('view-error-no-permissions'))); 
             }
             const targetDir = sails.config.record.attachments.stageDir; 
             const path = targetDir + '/' + attachId;
-            sails.log.info("About to go get DataCrate status: " + path);
             return DataCrateService.isDataCrate(path);
           })
       })

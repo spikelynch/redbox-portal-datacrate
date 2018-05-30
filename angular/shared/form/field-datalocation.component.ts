@@ -16,14 +16,17 @@
 // You should have received a copy of the GNU General Public License along
 // with this program; if not, write to the Free Software Foundation, Inc.,
 // 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
-import { Input, Component, OnInit, Inject, Injector} from '@angular/core';
+import { Input, Component, OnInit, Inject, Injector, Injectable } from '@angular/core';
+import { Http } from '@angular/http';
 import { SimpleComponent } from './field-simple.component';
 import { FieldBase } from './field-base';
+import { BaseService } from '../base-service';
 import { FormGroup, FormControl, Validators } from '@angular/forms';
 import * as _ from "lodash-es";
 import { RecordsService } from './records.service';
+import { ConfigService } from '../config-service';
+import { Observable } from 'rxjs';
 import * as Uppy from 'uppy';
-
 
 /**
  * Contributor Model
@@ -32,6 +35,30 @@ import * as Uppy from 'uppy';
  * @author <a target='_' href='https://github.com/shilob'>Shilo Banihit</a>
  *
  */
+
+
+
+@Injectable()
+export class DataCrateService extends BaseService {
+
+  constructor (@Inject(Http) http: Http, @Inject(ConfigService) protected configService: ConfigService) {
+    super(http, configService);
+  }
+  
+  public isDataCrate(oid: string, fileId: string): Observable<Object> {
+    const url = `${this.brandingAndPortalUrl}/record/${oid}/datacrate/${fileId}`;
+    return this.http.get(url).flatMap(res => {
+      const dcstatus = this.extractData(res);
+      console.log("isDataCrate service " + fileId);
+      console.log(dcstatus);
+      return Observable.of(dcstatus);
+    });
+  }
+}
+
+
+
+
 export class DataLocationField extends FieldBase<any> {
 
   showHeader: boolean;
@@ -41,6 +68,7 @@ export class DataLocationField extends FieldBase<any> {
   accessDeniedObjects: object[];
   failedObjects: object[];
   recordsService: RecordsService;
+  dataCrateService: DataCrateService;
   columns: object[];
   newLocation:any = {type:"url", location:"",notes:""};
   dataTypes:object[] = [{
@@ -77,6 +105,7 @@ export class DataLocationField extends FieldBase<any> {
 
     this.value = options['value'] || this.setEmptyValue();
     this.recordsService = this.getFromInjector(RecordsService);
+    this.dataCrateService = this.getFromInjector(DataCrateService);
   }
 
   setValue(value:any, emitEvent:boolean = true) {
@@ -93,7 +122,11 @@ export class DataLocationField extends FieldBase<any> {
   addLocation() {
     this.value.push(this.newLocation);
     this.setValue(this.value);
-    this.newLocation = {type:"url", location:"",notes:""};
+    this.newLocation = {
+      type:"url",
+      location:"",
+      notes:""
+    };
   }
 
   appendLocation(newLoc:any) {
@@ -118,7 +151,7 @@ export class DataLocationField extends FieldBase<any> {
 
 }
 /**
-* Component to display information from related objects within ReDBox
+* Component to display multiple data locations
 *
 *
 *
@@ -129,10 +162,13 @@ export class DataLocationField extends FieldBase<any> {
   templateUrl: './field-data-location.html'
 })
 export class DataLocationComponent extends SimpleComponent {
+
   field: DataLocationField;
   uppy: any = null;
   oid: any = null;
 
+    
+  
   public ngOnInit() {
     let oid = this.field.fieldMap._rootComp.oid;
     if (_.isNull(oid) || _.isUndefined(oid) || _.isEmpty(oid)) {
@@ -189,6 +225,7 @@ export class DataLocationComponent extends SimpleComponent {
     };
     console.debug(`Using Uppy config:`);
     console.debug(JSON.stringify(uppyConfig));
+    const dataCrateService = this.field.dataCrateService;
     const appConfig = this.field.recordsService.getConfig();
     const tusConfig =  {
       endpoint: `${this.field.recordsService.getBrandingAndPortalUrl}/record/${oid}/attach`
@@ -218,10 +255,39 @@ export class DataLocationComponent extends SimpleComponent {
       const urlParts = uploadURL.split('/');
       const fileId = urlParts[urlParts.length - 1];
       const choppedUrl = urlParts.slice(6, urlParts.length).join('/');
-      const newLoc = {type: "attachment", pending: true, location: choppedUrl, notes: file.meta.notes, mimeType: file.type, name: file.meta.name, fileId: fileId, uploadUrl: uploadURL};
-      console.debug(`Adding new location:`);
-      console.debug(newLoc);
-      this.field.appendLocation(newLoc);
+      const newLoc = {
+        type: "attachment",
+        pending: true,
+        manifest: null,
+        location: choppedUrl,
+        notes: file.meta.notes,
+        mimeType: file.type,
+        name: file.meta.name,
+        fileId: fileId,
+        uploadUrl: uploadURL
+      };
+      if( newLoc.mimeType === 'application/zip' ) {
+        console.debug(`Checking if ${fileId} is a DataCrate`);
+        console.log("adding new location for zip");
+        dataCrateService.isDataCrate(oid, fileId)
+          .subscribe((data) => {
+            if( 'datacrate' in data ) {
+              if( data['datacrate'] ) {
+                newLoc.notes = 'DataCrate v' + data['datacrate'];
+                newLoc.manifest = {
+                  container: 'DataCrate',
+                  version: data['datacrate'],
+                  contents: data['contents']
+                }
+              }
+            }
+            this.field.appendLocation(newLoc);
+          });
+      } else {
+        console.debug(`Adding new location:`);
+        console.debug(newLoc);
+        this.field.appendLocation(newLoc);
+      }
     });
     // clearing all pending attachments...
     this.field.fieldMap._rootComp.subscribe('onBeforeSave', this.field.name, (savedInfo:any) => {
@@ -244,4 +310,10 @@ export class DataLocationComponent extends SimpleComponent {
   public getAbsUrl(location:string) {
     return `${this.field.recordsService.getBrandingAndPortalUrl}/record/${location}`
   }
+
+
 }
+
+
+
+
