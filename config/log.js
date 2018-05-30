@@ -16,14 +16,14 @@ const customLogger = new (winston.Logger)({
   transports: [
     new (winston.transports.Console)({
       colorize: true,
-      level: 'verbose',
+      level: 'debug',
       json: false
     }),
     new (winston.transports.File)({
       name: 'info-file',
-      filename: 'logs/info.log',
+      filename: 'logs/debug.log',
       colorize: false,
-      level: 'info', 
+      level: 'debug', 
       json: false
     }),
     new (winston.transports.File)({

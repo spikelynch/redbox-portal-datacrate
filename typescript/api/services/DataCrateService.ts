@@ -57,22 +57,36 @@ export module Services {
             resolve(data);
           }
         })
-      }).then(function(data) {
+      }).then(data => {
         return jszip.loadAsync(data);
-      }).then(function (zip) {
+      }).then(zip => {
         const BAGITFILE = sails.config.datacrate.bagitFile;
+        const CATALOG = sails.config.datacrate.catalogFile;
         const PROFILEPAT = sails.config.datacrate.profilePattern;
         let files = Object.keys(zip['files']);
         if( BAGITFILE in zip['files'] ) {
-          return zip.file(BAGITFILE).async('text').then(function(data) {
+          return zip.file(BAGITFILE).async('text').then(data => {
 	    let m = data.match(PROFILEPAT);
 	    if( m ) {
 	      let v = m[1];
-              return {
-                'datacrate': m[1],
-                'notes': "Datacrate v " + m[1],
-                'contents': files
-              };
+              return zip.file(CATALOG).async('text')
+                .then(catalog => {
+                  let root = this.dataCrateRoot(catalog);
+                  return {
+                    'datacrate': m[1],
+                    'notes': root['name'] + "\n" + root['description'] + '\n(DataCrate v ' + m[1] + ')',
+                    'contents': files,
+                    'name': root['name'],
+                    'description': root['description']
+                  }
+                }).catch(err => {
+                  sails.log.error("Couldn't read " + CATALOG + ": " + err);
+                  return {
+                    'datacrate': m[1],
+                    'notes':err,
+                    'contents': files
+                  };
+                });
  	    } else {
 	      return {
                 'datacrate': '',
@@ -90,9 +104,22 @@ export module Services {
         }
       }).catch(function(err) {
         sails.log.info("error unzipping: " + err);
-        return {'datacrate': '', 'error': err.message };
+        return {'datacrate': '', 'error': err };
       });
     }
+
+    // returns the root 'data/' item from the DataCrate
+    // catalog - this contains the name/description of the
+    // dataset as a whole
+
+    protected dataCrateRoot(catalog: string): Object|undefined {
+      const jc = JSON.parse(catalog);
+      const graph = jc['@graph'];
+      const root = graph.filter(i => i['path'] === 'data/');
+      if( root && root[0] ) {
+        return root[0];
+      }
+      return undefined;    
   }
 }
 

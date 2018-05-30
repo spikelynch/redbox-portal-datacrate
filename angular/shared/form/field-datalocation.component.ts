@@ -271,13 +271,22 @@ export class DataLocationComponent extends SimpleComponent {
         console.log("adding new location for zip");
         dataCrateService.isDataCrate(oid, fileId)
           .subscribe((data) => {
+            console.log("isDataCrate returned " + JSON.stringify(data));
             if( 'datacrate' in data ) {
               if( data['datacrate'] ) {
                 newLoc.notes = 'DataCrate v' + data['datacrate'];
+                if( 'name' in data ) {
+                  newLoc.notes += '\n' + data['name'];
+                }
+                if( 'description' in data ) {
+                  newLoc.notes += '\n' + data['description'];
+                }
                 newLoc.manifest = {
                   container: 'DataCrate',
                   version: data['datacrate'],
-                  contents: data['contents']
+                  contents: data['contents'],
+                  name: data['name'],
+                  description: data['description']
                 }
               }
             }
