@@ -47,6 +47,7 @@ export class DataCrateService extends BaseService {
   
   public isDataCrate(oid: string, fileId: string): Observable<Object> {
     const url = `${this.brandingAndPortalUrl}/record/${oid}/datacrate/${fileId}`;
+    console.log(`About to call dataCrate endpoint at ${url}`);
     return this.http.get(url).flatMap(res => {
       const dcstatus = this.extractData(res);
       console.log("isDataCrate service " + fileId);
@@ -119,6 +120,7 @@ export class DataLocationField extends FieldBase<any> {
     return this.value;
   }
 
+  // this is called when adding all types except for attachments
   addLocation() {
     this.value.push(this.newLocation);
     this.setValue(this.value);
@@ -129,6 +131,7 @@ export class DataLocationField extends FieldBase<any> {
     };
   }
 
+  // this is called when an attachment uploads
   appendLocation(newLoc:any) {
     this.value.push(newLoc);
     this.setValue(this.value, true);
@@ -211,7 +214,6 @@ export class DataLocationComponent extends SimpleComponent {
     }
   }
 
-
   public initUppy(oid: string) {
     this.field.fieldMap[this.field.name].instance.oid = oid;
     if (this.uppy) {
@@ -264,14 +266,13 @@ export class DataLocationComponent extends SimpleComponent {
         mimeType: file.type,
         name: file.meta.name,
         fileId: fileId,
-        uploadUrl: uploadURL
+        uploadUrl: uploadURL,
+        publishUrl: ""
       };
       if( newLoc.mimeType === 'application/zip' ) {
         console.debug(`Checking if ${fileId} is a DataCrate`);
-        console.log("adding new location for zip");
         dataCrateService.isDataCrate(oid, fileId)
           .subscribe((data) => {
-            console.log("isDataCrate returned " + JSON.stringify(data));
             if( 'datacrate' in data ) {
               if( data['datacrate'] ) {
                 newLoc.notes = 'DataCrate v' + data['datacrate'];
@@ -281,6 +282,7 @@ export class DataLocationComponent extends SimpleComponent {
                 if( 'description' in data ) {
                   newLoc.notes += '\n' + data['description'];
                 }
+                newLoc.publishUrl = data['url'];
                 newLoc.manifest = {
                   container: 'DataCrate',
                   version: data['datacrate'],
@@ -316,10 +318,13 @@ export class DataLocationComponent extends SimpleComponent {
     return isDisabled;
   }
 
-  public getAbsUrl(location:string) {
-    return `${this.field.recordsService.getBrandingAndPortalUrl}/record/${location}`
+  public getAbsUrl(location:string, publishUrl:string) {
+    if( publishUrl ) {
+      return publishUrl;
+    } else {
+      return `${this.field.recordsService.getBrandingAndPortalUrl}/record/${location}`
+    }
   }
-
 
 }
 

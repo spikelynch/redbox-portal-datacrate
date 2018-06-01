@@ -6,4 +6,6 @@ module.exports.datacrate = {
   bagitFile: 'bag-info.txt',
   profilePattern: 'profile-datacrate-v(\\d+\\.\\d+)\\.json',
   catalogFile: 'CATALOG.json',
+  publishDir: '/export/publish',
+  urlBase: 'http://localhost/public/'
 };

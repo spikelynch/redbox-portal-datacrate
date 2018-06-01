@@ -749,9 +749,9 @@ export module Controllers {
             if(!hasViewAccess) {
               return Observable.throw(new Error(TranslationService.t('view-error-no-permissions'))); 
             }
-            const targetDir = sails.config.record.attachments.stageDir; 
-            const path = targetDir + '/' + attachId;
-            return DataCrateService.isDataCrate(path);
+            const targetDir = sails.config.record.attachments.stageDir;
+            sails.log.debug("isDataCrate " + targetDir + ' / ' + attachId);
+            return DataCrateService.isDataCrate(targetDir, attachId);
           })
       })
         .subscribe(
@@ -760,6 +760,9 @@ export module Controllers {
         );
     }
                             
+
+                            
+
     
     
     public getWorkflowSteps(req, res) {

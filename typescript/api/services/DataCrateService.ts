@@ -24,6 +24,8 @@ import * as request from "request-promise";
 
 import * as fs from "fs";
 import * as jszip from "jszip";
+import unzip = require("unzip");
+import * as path from "path";
 
 declare var sails: Sails;
 declare var Report: Model;
@@ -40,18 +42,20 @@ export module Services {
   export class DataCrateService extends services.Services.Core.Service {
     
     protected _exportedMethods: any = [
-      'isDataCrate'
+      'isDataCrate',
+      'extractDataCrate',
     ];
     
-    public isDataCrate(file: string) {
-      return Observable.fromPromise(this.isDataCratePromise(file));
+    public isDataCrate(dir: string, fileId: string) {
+      return Observable.fromPromise(this.isDataCratePromise(dir, fileId));
     }
 
-    protected isDataCratePromise(file: string): Promise<Object> {
+    protected isDataCratePromise(dir: string, fileId: string): Promise<Object> {
       return new Promise<Object>(function (resolve, reject) {
+        const file = path.join(dir, fileId);
         fs.readFile(file, function(err, data) {
           if( err ) {
-            sails.log.error("Error reading " + file);
+            sails.log.error("Error reading attachments: " + file);
             reject(err);
           } else {
             resolve(data);
@@ -78,6 +82,8 @@ export module Services {
                     'name': root['name'],
                     'description': root['description']
                   }
+                }).then(response => {
+                  return this.dataCrateExtract(response, dir, fileId);
                 }).catch(err => {
                   sails.log.error("Couldn't read " + CATALOG + ": " + err);
                   return {
@@ -106,7 +112,7 @@ export module Services {
         return {'datacrate': '', 'error': err };
       });
     }
-
+    
     // returns the root 'data/' item from the DataCrate
     // catalog - this contains the name/description of the
     // dataset as a whole
@@ -119,7 +125,37 @@ export module Services {
         return root[0];
       }
       return undefined;    
+    }
+
+
+
+              
+    
+    protected dataCrateExtract(response: Object, dir: string, fileId: string):Promise<Object> {
+      const repo = sails.config.datacrate.publishDir;
+      const file = path.join(dir, fileId);
+      const dest = path.join(repo, fileId);
+      const url = sails.config.datacrate.urlBase + fileId + '/';
+      // check if we've already done it!
+      return new Promise((resolve, reject) => {
+        try {
+          fs.createReadStream(file)
+            .pipe(unzip.Extract( { path: dest }))
+            .on('close', () => {
+              response['url'] = url;
+              resolve(response);
+            });
+        } catch(e) {
+          reject(e);
+        }
+      });
+    }
+
   }
+
 }
+ 
+
+
 
 module.exports = new Services.DataCrateService().exports();
